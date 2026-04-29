@@ -8,8 +8,31 @@ from pathlib import Path
 from typing import Optional
 
 import instructor
-from openai import OpenAI
 from pydantic import BaseModel, Field, field_validator
+
+
+SUPPORTED_PROVIDERS = ("openai", "anthropic")
+
+DEFAULT_MODELS: dict[str, tuple[str, str]] = {
+    "openai": ("gpt-4o-mini", "gpt-4o"),
+    "anthropic": ("claude-haiku-4-5", "claude-sonnet-4-6"),
+}
+
+
+def make_client(provider: str, model: str):
+    """Return an instructor client bound to provider+model.
+
+    Built-in support: openai, anthropic. Extending to other providers
+    (gemini, cohere, groq, ollama, mistral, etc.) is a one-line addition
+    here — instructor.from_provider already supports them.
+    """
+    if provider not in SUPPORTED_PROVIDERS:
+        raise ValueError(
+            f"Unsupported MAESTRO_PROVIDER: {provider!r}. "
+            f"Built-in support: {', '.join(SUPPORTED_PROVIDERS)}. "
+            "instructor.from_provider supports more — extend make_client() to enable them."
+        )
+    return instructor.from_provider(f"{provider}/{model}")
 
 
 class AgentStatus(str, Enum):
@@ -297,16 +320,28 @@ def verify_agent_output(vault: VaultManager, project_name: str, receipt: AgentRe
 def conduct(
     project_name: str,
     user_prompt: str,
+    provider: Optional[str] = None,
     routing_model: Optional[str] = None,
     agent_model: Optional[str] = None,
     max_iterations: int = 10,
 ) -> None:
-    routing_model = routing_model or os.getenv("MAESTRO_ROUTING_MODEL", "gpt-4o-mini")
-    agent_model = agent_model or os.getenv("MAESTRO_AGENT_MODEL", "gpt-4o")
+    provider = provider or os.getenv("MAESTRO_PROVIDER", "openai")
+    default_routing, default_agent = DEFAULT_MODELS.get(provider, (None, None))
+    routing_model = routing_model or os.getenv("MAESTRO_ROUTING_MODEL") or default_routing
+    agent_model = agent_model or os.getenv("MAESTRO_AGENT_MODEL") or default_agent
+
+    if not routing_model or not agent_model:
+        raise ValueError(
+            f"No default models registered for provider {provider!r}. "
+            "Set MAESTRO_ROUTING_MODEL and MAESTRO_AGENT_MODEL, "
+            "or pass --routing-model and --agent-model."
+        )
 
     print(f"Maestro Protocol initiated for project: {project_name}")
+    print(f"Provider: {provider} | routing: {routing_model} | agent: {agent_model}")
     vault = VaultManager()
-    client = instructor.from_openai(OpenAI())
+    routing_client = make_client(provider, routing_model)
+    agent_client = make_client(provider, agent_model)
 
     try:
         protocol = vault.load_protocol()
@@ -331,8 +366,7 @@ def conduct(
         print(f"\n--- Iteration {iteration}/{max_iterations} ---")
         print("Selecting agent with compact routing context...")
 
-        decision = client.chat.completions.create(
-            model=routing_model,
+        decision = routing_client.chat.completions.create(
             response_model=MaestroDecision,
             messages=[
                 {
@@ -369,8 +403,7 @@ def conduct(
         print(f"Loaded clauses: {agent.required_clauses or ['none']}")
         print(f"Context files summarized: {len(context_pack.relevant_files)}")
 
-        receipt = client.chat.completions.create(
-            model=agent_model,
+        receipt = agent_client.chat.completions.create(
             response_model=AgentReceipt,
             messages=[
                 {
@@ -416,6 +449,7 @@ def conduct(
 
                 vault.create_task_log(project_name, {
                     "iteration": iteration,
+                    "provider": provider,
                     "routing_model": routing_model,
                     "agent_model": agent_model,
                     "agent": agent.name,
@@ -448,6 +482,7 @@ def conduct(
 
         vault.create_task_log(project_name, {
             "iteration": iteration,
+            "provider": provider,
             "routing_model": routing_model,
             "agent_model": agent_model,
             "agent": agent.name,

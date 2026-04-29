@@ -13,6 +13,7 @@ def main() -> None:
     run = sub.add_parser("run", help="Run the orchestrator")
     run.add_argument("project")
     run.add_argument("prompt")
+    run.add_argument("--provider", default=None, help="LLM provider: openai or anthropic (default: openai or $MAESTRO_PROVIDER)")
     run.add_argument("--routing-model", default=None)
     run.add_argument("--agent-model", default=None)
     run.add_argument("--max-iterations", type=int, default=10)
@@ -34,6 +35,7 @@ def main() -> None:
         conduct(
             args.project,
             args.prompt,
+            provider=args.provider,
             routing_model=args.routing_model,
             agent_model=args.agent_model,
             max_iterations=args.max_iterations,

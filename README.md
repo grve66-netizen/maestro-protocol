@@ -123,7 +123,35 @@ The orchestration loop ends only when an agent returns a receipt with `is_projec
 ## Requirements
 
 - Python 3.10 or newer
-- An OpenAI API key (set as `OPENAI_API_KEY`) for the `run` command. Other commands (`init`, `status`, `manifest`) do not call the API.
+- An API key for whichever provider you use (`OPENAI_API_KEY` for OpenAI, `ANTHROPIC_API_KEY` for Anthropic). Only the `run` command calls the API; `init`, `status`, and `manifest` work offline.
+
+## Providers
+
+Maestro is provider-agnostic. Built-in support: **OpenAI** (default) and **Anthropic**. The provider is selected by the `MAESTRO_PROVIDER` environment variable or the `--provider` flag.
+
+```bash
+# OpenAI (default)
+export OPENAI_API_KEY="..."
+python -m core.cli run my_project "Build a landing page"
+
+# Anthropic
+pip install '.[anthropic]'
+export ANTHROPIC_API_KEY="..."
+export MAESTRO_PROVIDER=anthropic
+python -m core.cli run my_project "Build a landing page"
+
+# Or per-invocation override
+python -m core.cli run my_project "Build a landing page" --provider anthropic
+```
+
+Default models per provider (override with `--routing-model` / `--agent-model` or env vars):
+
+| Provider  | Routing model       | Agent model         |
+|-----------|---------------------|---------------------|
+| openai    | `gpt-4o-mini`       | `gpt-4o`            |
+| anthropic | `claude-haiku-4-5`  | `claude-sonnet-4-6` |
+
+To enable other providers (Gemini, Cohere, Groq, Ollama, Mistral, etc.), extend the `SUPPORTED_PROVIDERS` tuple and `DEFAULT_MODELS` map in [core/maestro.py](core/maestro.py). `instructor.from_provider` handles the underlying SDK plumbing for all major providers.
 
 ## CLI
 
@@ -184,14 +212,13 @@ Tests cover path traversal, allowed-path enforcement, manifest building, protoco
 
 ## Environment Defaults
 
-You can set default models with:
-
 ```bash
+export MAESTRO_PROVIDER="openai"          # or "anthropic"
 export MAESTRO_ROUTING_MODEL="gpt-4o-mini"
 export MAESTRO_AGENT_MODEL="gpt-4o"
 ```
 
-CLI arguments override environment variables.
+Resolution order (highest priority first): CLI args → env vars → built-in defaults for the selected provider.
 
 ## Current Limitations
 

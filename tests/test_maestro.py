@@ -1,3 +1,5 @@
+from unittest.mock import patch
+
 import pytest
 from pydantic import ValidationError
 
@@ -5,8 +7,11 @@ from core.maestro import (
     AgentDefinition,
     AgentReceipt,
     AgentStatus,
+    DEFAULT_MODELS,
     FileWrite,
+    SUPPORTED_PROVIDERS,
     VaultManager,
+    make_client,
     verify_agent_output,
 )
 
@@ -287,6 +292,38 @@ def test_init_project_missing_template(tmp_path, monkeypatch):
     vault = VaultManager(base_dir=str(tmp_path / "vault"))
     with pytest.raises(FileNotFoundError):
         vault.init_project("proj1", "does_not_exist")
+
+
+# --- make_client / providers ---
+
+
+def test_make_client_dispatches_openai():
+    with patch("core.maestro.instructor.from_provider") as mock_from_provider:
+        mock_from_provider.return_value = "fake-openai-client"
+        client = make_client("openai", "gpt-4o-mini")
+    mock_from_provider.assert_called_once_with("openai/gpt-4o-mini")
+    assert client == "fake-openai-client"
+
+
+def test_make_client_dispatches_anthropic():
+    with patch("core.maestro.instructor.from_provider") as mock_from_provider:
+        mock_from_provider.return_value = "fake-anthropic-client"
+        client = make_client("anthropic", "claude-sonnet-4-6")
+    mock_from_provider.assert_called_once_with("anthropic/claude-sonnet-4-6")
+    assert client == "fake-anthropic-client"
+
+
+def test_make_client_rejects_unknown_provider():
+    with pytest.raises(ValueError, match="Unsupported MAESTRO_PROVIDER"):
+        make_client("nonsense", "some-model")
+
+
+def test_default_models_covers_all_supported_providers():
+    for provider in SUPPORTED_PROVIDERS:
+        assert provider in DEFAULT_MODELS
+        routing, agent = DEFAULT_MODELS[provider]
+        assert routing and agent
+        assert isinstance(routing, str) and isinstance(agent, str)
 
 
 # --- AgentReceipt structured completion field ---
