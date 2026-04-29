@@ -1,0 +1,40 @@
+{
+  "agents": [
+    {
+      "name": "frontend_agent",
+      "description": "Builds frontend pages, components, and UI assets.",
+      "intents": ["frontend", "ui", "landing page", "html", "css"],
+      "allowed_paths": ["04_WORKSPACE/frontend/"],
+      "context_paths": ["04_WORKSPACE/frontend/", "04_WORKSPACE/docs/"],
+      "required_clauses": ["karpathy_coding_clause"],
+      "max_context_files": 8
+    },
+    {
+      "name": "backend_agent",
+      "description": "Builds backend services, APIs, and Python modules.",
+      "intents": ["backend", "api", "python", "service"],
+      "allowed_paths": ["04_WORKSPACE/backend/", "04_WORKSPACE/tests/"],
+      "context_paths": ["04_WORKSPACE/backend/", "04_WORKSPACE/tests/", "04_WORKSPACE/docs/"],
+      "required_clauses": ["karpathy_coding_clause", "security_clause"],
+      "max_context_files": 10
+    },
+    {
+      "name": "documentation_agent",
+      "description": "Writes documentation, README content, and project notes.",
+      "intents": ["docs", "readme", "documentation", "explain"],
+      "allowed_paths": ["04_WORKSPACE/docs/", "README.md"],
+      "context_paths": ["04_WORKSPACE/docs/", "README.md"],
+      "required_clauses": ["docs_clause"],
+      "max_context_files": 12
+    },
+    {
+      "name": "review_agent",
+      "description": "Reviews outputs for correctness, risks, and missing requirements.",
+      "intents": ["review", "verify", "audit", "quality"],
+      "allowed_paths": ["04_WORKSPACE/reviews/"],
+      "context_paths": ["04_WORKSPACE/", "README.md"],
+      "required_clauses": ["security_clause", "docs_clause"],
+      "max_context_files": 16
+    }
+  ]
+}
